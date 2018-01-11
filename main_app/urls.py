@@ -7,4 +7,5 @@ urlpatterns = [
     url(r'^halls/(?P<hall_id>\d*)$', views.hall_view, name='hall_view'),
     url(r'^seances/(?P<seance_id>\d*)$', views.seance_view, name='seance_view'),
     url(r'^tickets/(?P<ticket_id>\d*)$', views.ticket_view, name='ticket_view'),
+    url(r'^tickets/sell/$', views.ticket_sell, name='ticket_sell'),
 ]

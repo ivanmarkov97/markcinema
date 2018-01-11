@@ -2,6 +2,8 @@ from django.shortcuts import render
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from .models import Film, Hall, Seance, Ticket
+from django.core.files import File
+from django.core.files.storage import FileSystemStorage
 import json
 
 # Create your views here.
@@ -61,6 +63,44 @@ def ticket_view(request, ticket_id):
 		resp_data = del_ticket(request, ticket_id)
 	return HttpResponse(json.dumps(resp_data), content_type='application/json')
 
+@csrf_exempt
+def ticket_sell(request):
+	resp_data = {}
+	#try:
+	tickets = json.loads(request.body)
+	time = tickets['time']
+	film = tickets['film']
+	hall = tickets['hall']
+	cost = tickets['cost']
+	places = tickets['places']
+	film = Film.objects.get(name=film)
+	hall = Hall.objects.get(name=hall)
+	seance = Seance.objects.get(time=time, cost=cost, hall=hall, film=film)
+	m_tickets = Ticket.objects.all().filter(seance=seance)
+	#ticks = []
+	#resp_data['data'] = ticks
+	#for ticket in m_tickets:
+	#	ticks.append(str(ticket))
+	#return HttpResponse(json.dumps(resp_data), content_type='application/json')
+	place = set()
+	row = set()
+	for pl in places:
+		place.add(int(pl['place']))
+	for rw in places:
+		row.add(int(rw['row']))
+	resp_data['changed'] = 0
+	for ticket in m_tickets:
+		if ticket.place in place and ticket.row in row:
+			ticket.is_free = False
+			ticket.save()
+			resp_data['changed'] = resp_data['changed'] + 1
+	resp_data['result'] = 'OK'
+	resp_data['errors'] = ''
+	#except:
+	#	resp_data['result'] = 'failed'
+	#	resp_data['errors'] = 'change ticket error'
+	return HttpResponse(json.dumps(resp_data), content_type='application/json')
+
 def get_film(request, film_id):
 	resp = {}
 	films = []
@@ -75,7 +115,10 @@ def get_film(request, film_id):
 				'description': film.description,
 				'age': film.age,
 				'country': film.country,
-				'producer': film.producer
+				'producer': film.producer,
+				'duration': film.duration,
+				'genre': film.genre,
+				'image': film.image_url
 			})
 			resp['result'] = 200
 			resp['errors'] = ''
@@ -90,7 +133,10 @@ def get_film(request, film_id):
 				'description': film.description,
 				'age': film.age,
 				'country': film.country,
-				'producer': film.producer
+				'producer': film.producer,
+				'duration': film.duration,
+				'genre': film.genre,
+				'image': film.image_url
 			})
 		resp['result'] = 200
 		resp['errors'] = ''
@@ -138,7 +184,7 @@ def put_film(request, film_id):
 		resp['result'] = 404
 		resp['errors'] = 'input film_id'
 	return resp
-
+ 
 def del_film(request, film_id):
 	resp = {}
 	if film_id != "":
@@ -350,20 +396,21 @@ def get_ticket(request, ticket_id):
 	resp['data'] = tickets
 	if ticket_id != "":
 		try:
-			seance_id = int(seance_id)
-			seance = Seance.objects.get(pk=seance_id)
-			seances.append({
-				'id': seance.id,
-				'time': str(seance.time),
-				'cost': seance.cost,
-				'hall': str(seance.hall),
+			ticket_id = int(ticket_id)
+			ticket = Ticket.objects.get(pk=ticket_id)
+			tickets.append({
+				'id': ticket.id,
+				'seance': str(seance),
 				'film': str(seance.film),
+				'place': ticket.place,
+				'row': ticket.row,
+				'is_free': ticket.is_free
 			})
 			resp['result'] = 200
 			resp['errors'] = ''
 		except:
 			resp['result'] = 404
-			resp['errors'] = 'seance not found'
+			resp['errors'] = 'ticket not found'
 	elif request.GET.get('hall'):
 		try:
 			hall_id = int(request.GET['hall'])
@@ -375,7 +422,8 @@ def get_ticket(request, ticket_id):
 				'seance': str(seance),
 				'film': str(seance.film),
 				'place': ticket.place,
-				'row': ticket.row
+				'row': ticket.row,
+				'is_free': ticket.is_free
 			})
 			resp['result'] = 200
 			resp['errors'] = ''
@@ -389,17 +437,40 @@ def get_ticket(request, ticket_id):
 			seance = Seance.objects.all().filter(film=film)
 			ticket = Ticket.objects.all().filter(seance=seance)
 			tickets.append({
-				'id': ticket.id,
-				'seance': str(seance),
-				'film': str(seance.film),
-				'place': ticket.place,
-				'row': ticket.row
+				'id': ticket[i].id,
+				'seance': str(seance[0]),
+				'film': str(seance[0].film),
+				'place': ticket[i].place,
+				'row': ticket[i].row,
+				'is_free': ticket[i].is_free
 			})
 			resp['result'] = 200
 			resp['errors'] = ''
 		except:
 			resp['result'] = 404
 			resp['errors'] = 'film not found'
+	elif request.GET.get('seance'):
+		#try:
+		seance_id = int(request.GET['seance'])
+		seance = Seance.objects.all().get(pk=seance_id)
+		ticket = Ticket.objects.all().filter(seance=seance)
+		i = 0
+		while i < len(ticket):
+			tickets.append({
+				'id': ticket[i].id,
+				'seance': str(seance),
+				'hall': str(seance.hall),
+				'film': str(seance.film),
+				'place': ticket[i].place,
+				'row': ticket[i].row,
+				'is_free': ticket[i].is_free
+			})
+			i = i + 1
+		resp['result'] = 200
+		resp['errors'] = ''
+		#except:
+		#	resp['result'] = 404
+		#	resp['errors'] = 'seance not found'		
 	else:
 		for ticket in Ticket.objects.all():
 			tickets.append({
@@ -407,7 +478,8 @@ def get_ticket(request, ticket_id):
 				'seance': str(ticket.seance),
 				'film': str(ticket.seance.film),
 				'place': ticket.place,
-				'row': ticket.row
+				'row': ticket.row,
+				'is_free': ticket.is_free
 			})
 		resp['result'] = 200
 		resp['errors'] = ''
@@ -432,7 +504,8 @@ def post_ticket(request):
 					ticket = Ticket.objects.create(
 						seance = seance,
 						place = j,
-						row = i
+						row = i,
+						is_free = True
 					)
 					ticket.save()
 					j = j + 1
@@ -449,7 +522,8 @@ def post_ticket(request):
 			ticket = Ticket.objects.create(
 				seance = seance,
 				place = new_ticket['data']['place'],
-				row = new_ticket['data']['row']
+				row = new_ticket['data']['row'],
+				is_free = new_ticket['data']['is_free']
 			)
 			seance.save()
 			resp['result'] = 200
@@ -470,6 +544,7 @@ def put_ticket(request, ticket_id):
 			ticket.seance = seance
 			ticket.place = new_ticket['data']['place']
 			ticket.row = new_ticket['data']['row']
+			ticket.is_free = new_ticket['data']['is_free']
 
 			ticket.save()
 			resp['result'] = 200

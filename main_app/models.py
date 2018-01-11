@@ -1,5 +1,5 @@
 from django.db import models
-
+import base64
 # Create your models here.
 
 class Film(models.Model):
@@ -8,9 +8,22 @@ class Film(models.Model):
 	age = models.IntegerField()
 	country = models.CharField(max_length=80)
 	producer = models.CharField(max_length=80)
+	image = models.ImageField(upload_to='photos/', max_length=255, default='media/fit_service_img9.jpg')
+	duration = models.IntegerField(default=0)
+	genre = models.CharField(max_length=80, default='')
 
 	def __str__(self):
 		return self.name
+
+	@property
+	def image_url(self):
+		return self.image.url
+		#try:
+		#	img = open(self.image.path, "rb")
+		#	data = base64.b64encode(img.read())
+		#	return "data:image/jpg;base64,%s" % data
+		#except IOError:
+		#	return self.image.url
 
 class Hall(models.Model):
 	name = models.CharField(max_length=80)
@@ -34,6 +47,7 @@ class Ticket(models.Model):
 	seance = models.ForeignKey('Seance')
 	place = models.IntegerField()
 	row = models.IntegerField()
+	is_free = models.BooleanField(default=True)
 	#is_sold = models.BooleanField()
 
 	def __str__(self):
