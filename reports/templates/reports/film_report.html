@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block film_report %}
+
+
+Date: {{ month }} {{ year }}
+
+{{ message }}
+
+{% for film in films %}
+
+<p>{{ film }}</p>
+<div>{{profit}}</div>
+
+{% endfor %}
+
+{% endblock %}

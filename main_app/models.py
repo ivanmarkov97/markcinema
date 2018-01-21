@@ -43,6 +43,14 @@ class Seance(models.Model):
 	def __str__(self):
 		return str(self.time)
 
+	@property
+	def get_month(self):
+		return (self.time.month)
+
+	@property
+	def get_year(self):
+		return (self.time.year)
+
 class Ticket(models.Model):
 	seance = models.ForeignKey('Seance')
 	place = models.IntegerField()
